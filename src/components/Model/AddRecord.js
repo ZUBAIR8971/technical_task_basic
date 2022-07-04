@@ -17,19 +17,33 @@ import {
 import {FiUser} from "react-icons/fi";
 import {HiOutlineMail} from "react-icons/hi";
 
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 const AddRecord = (props) => {
 
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [role, setRole] = useState("");
 
-    const addCustomer = (event) => {
+    const addCustomer = () => {
 
-        props.submitFunction({name, email, role});
-
-        setName('');
-        setEmail('');
-        setRole('');
+        if(name === "" || email === "" || role === ""){
+            toast.error('Please fill all the fields', {
+                position: "top-center",
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+                progress: undefined,
+            });
+        } else {
+            props.submitFunction({name, email, role});
+            setName('');
+            setEmail('');
+            setRole('');
+        }
     }
 
   return (
@@ -92,10 +106,20 @@ const AddRecord = (props) => {
                     <Button colorScheme='teal' mr={3} onClick={() => props.Close()}>
                         Close
                     </Button>
-                    <Button colorScheme='teal' onClick={addCustomer}>Save</Button>
+                    {
+                        props.processingStatus ?
+                            <>
+                                <Button colorScheme='teal' isLoading loadingText='Submitting' />
+                            </>
+                        :
+                            <>
+                                <Button colorScheme='teal' onClick={addCustomer}>Save</Button>
+                            </>
+                    }
                 </ModalFooter>
             </ModalContent>
         </Modal>
+
     </>
   )
 }

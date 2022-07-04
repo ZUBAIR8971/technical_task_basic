@@ -12,7 +12,12 @@ import {
   Text,
   Spinner,
   Stack,
+  Input,
+  InputGroup,
 } from '@chakra-ui/react';
+
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import { GET_Customers } from './GraphQL/Queries/GetData';
 
@@ -29,30 +34,31 @@ import { useQuery, useMutation } from "@apollo/client";
 
 import AddRecord from './Model/AddRecord';
 import DeleteRecords from './Model/DeleteRecords';
-import EditRecords from './Model/EditRecord';
 
 const TableComponent = () => {
 
     const [isOpen, setIsOpen] = useState(false);
     const [isDelOpen, setIsDelOpen] = useState(false);
-    const [isEditOpen, setIsEditOpen] = useState(false);
 
     const [deleteRecord, setDeleteRecord] = useState({
         id: ''
     });
 
-    const [updateData, setUpdateData] = useState({
-        id: '',
-        name: '',
-        email: '',
-        role: '',
-    });
+    const [updIndex, setUpdIndex] = useState('');
+    const [id, setId] = useState("");
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [role, setRole] = useState("");
+    const [updateStatus, setUpdateStatus] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    const [delProcessing, setDelProcessing] = useState(false);
+    const [addProcessing, setAddProcessing] = useState(false);
 
     const { loading, error, data, } = useQuery(GET_Customers);
 
-    const [insertCustomer, {isLoading}] = useMutation(INSERT_Customers);
-    const [updateCustomer, {isUpdLoading}] = useMutation(UPDATE_Customers);
-    const [deleteCustomer, {isDelLoading}] = useMutation(DELETE_Customers);
+    const [insertCustomer] = useMutation(INSERT_Customers);
+    const [updateCustomer] = useMutation(UPDATE_Customers);
+    const [deleteCustomer] = useMutation(DELETE_Customers);
 
     const getData = useMemo(() => {
        return data ? data.customers : []
@@ -77,23 +83,32 @@ const TableComponent = () => {
         setIsDelOpen(true);
     };
 
-     const handleEditOpen = (customer) => {
-        setUpdateData({
-            id: customer.id,
-            name: customer.name,
-            email: customer.email,
-            role: customer.role,
-        });
-        setIsEditOpen(true);
+     const handleEditOpen = (customer, index) => {
+        setId(customer.id);
+        setName(customer.name);
+        setEmail(customer.email);
+        setRole(customer.role);
+        setUpdIndex(index + 1);
+        setUpdateStatus(true);
+    };
+
+    const CancelUpdate = () => {
+        setId("");
+        setName("");
+        setEmail("");
+        setRole("");
+        setUpdIndex("");
+        setUpdateStatus(false);
     };
 
     const handleClose = () => {
         setIsOpen(false);
         setIsDelOpen(false);
-        setIsEditOpen(false);
     };
 
     const SubmitRecord = (customer) => {
+
+        setAddProcessing(true);
 
         let newCustomer = {
         name: customer.name,
@@ -107,54 +122,92 @@ const TableComponent = () => {
                 [insertCustomerParams.email]: newCustomer.email,
                 [insertCustomerParams.role]: newCustomer.role
             },
-            refetchQueries: [{ query: GET_Customers }]
+            refetchQueries: [{ query: GET_Customers }],
+            onCompleted: () => {
+                setAddProcessing(false);
+                setIsOpen(false);
+            }
         });
-        setIsOpen(false);
     }
 
     const deleteFunction = (data) => {
+
+        setDelProcessing(true);
 
         let newCustomer = {
             id: data.id
         };
         deleteCustomer({ 
             variables: { 
-                [deleteCustomerParams.id]: newCustomer.id
+                [deleteCustomerParams.id]: newCustomer.id,
             },
-            refetchQueries: [{ query: GET_Customers }]
+            refetchQueries: [{ query: GET_Customers }],
+            onCompleted: () => {
+                setIsDelOpen(false);
+                setDelProcessing(false);
+            }
         });
-        setIsDelOpen(false);
     }
 
-    const updateRecord = (customer) => {
-
-        let editCustomer = {
-            id: customer.id,
-            name: customer.name,
-            email: customer.email,
-            role: customer.role
-        };
+    const updateRecord = () => {
         
-        updateCustomer({ 
-            variables: { 
-                [updateCustomerParams.id]: editCustomer.id,
-                [updateCustomerParams.name]: editCustomer.name,
-                [updateCustomerParams.email]: editCustomer.email,
-                [updateCustomerParams.role]: editCustomer.role
-            },
-            refetchQueries: [{ query: GET_Customers }]
-        });
+        setProcessing(true);
 
-        setIsEditOpen(false);
+        if(name === "" || email === "" || role === ""){
+            toast.error('Please fill all the fields', {
+                position: "top-center",
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+                progress: undefined,
+            });
+        } else {
+            let editCustomer = {
+                id: id,
+                name: name,
+                email: email,
+                role: role
+            };
+            
+            updateCustomer({ 
+                variables: { 
+                    [updateCustomerParams.id]: editCustomer.id,
+                    [updateCustomerParams.name]: editCustomer.name,
+                    [updateCustomerParams.email]: editCustomer.email,
+                    [updateCustomerParams.role]: editCustomer.role
+                },
+                refetchQueries: [{ query: GET_Customers }],
+                onCompleted: () => {
+                    setId("");
+                    setName("");
+                    setEmail("");
+                    setRole("");
+                    setUpdIndex("");
+                    setUpdateStatus(false);
+                    setProcessing(false);
+                }
+            });
+        }
     };
 
   return (
     <>
         <div className='AddRecordBtn'>
-            <Button colorScheme='teal' size='md' onClick={handleOpen}>Add Record</Button>
+            {
+                updateStatus ?
+                    <>
+                        <Button disabled colorScheme='teal' size='md' onClick={handleOpen}>Add Record</Button>
+                    </>
+                :
+                    <>
+                        <Button colorScheme='teal' size='md' onClick={handleOpen}>Add Record</Button>
+                    </>
+            }
         </div>
         {
-            loading || isLoading || isUpdLoading || isDelLoading ?
+            loading ?
                 <>
                     <Stack spacing={"2"}>
                         <Spinner size="xl" />
@@ -165,7 +218,7 @@ const TableComponent = () => {
                     {
                         CustomersData.length > 0 ? 
                             <>
-                                <TableContainer style={{width:"60%"}}>
+                                <TableContainer style={{width:"80%"}}>
                                     <Table variant='simple' maxWidth={"100%"}>
                                         <TableCaption>Customer Table</TableCaption>
                                         <Thead>
@@ -181,15 +234,89 @@ const TableComponent = () => {
                                                 CustomersData.map((customer, index) => {
                                                     return (
                                                         <Tr key={index}>
-                                                            <Td textAlign="center">{customer.name}</Td>
-                                                            <Td textAlign="center">{customer.email}</Td>
-                                                            <Td textAlign="center">{customer.role}</Td>
-                                                            <Td textAlign="center">
-                                                                <Button colorScheme='teal' size='sm' onClick={() => handleEditOpen(customer)}>Edit</Button>
-                                                            </Td>
-                                                            <Td textAlign="center">
-                                                                <Button colorScheme='teal' size='sm' onClick={() => handleDelOpen(customer)}>Delete</Button>
-                                                            </Td>
+
+                                                            {
+                                                                updateStatus && updIndex === index + 1 ?
+                                                                    <>
+                                                                        <Td>
+                                                                            <InputGroup>
+                                                                                <Input
+                                                                                    type="text"
+                                                                                    placeholder="Name"
+                                                                                    value={name}
+                                                                                    name="name"
+                                                                                    id="name"
+                                                                                    onChange={(e) => setName(e.target.value)}
+                                                                                />
+                                                                            </InputGroup>
+                                                                        </Td>
+                                                                        <Td>
+                                                                            <InputGroup>
+                                                                                <Input
+                                                                                    type="text"
+                                                                                    placeholder="Email"
+                                                                                    value={email}
+                                                                                    name="email"
+                                                                                    id="email"
+                                                                                    onChange={(e) => setEmail(e.target.value)}
+                                                                                />
+                                                                            </InputGroup>
+                                                                        </Td>
+                                                                        <Td>
+                                                                            <InputGroup>
+                                                                                <Input
+                                                                                    type="text"
+                                                                                    placeholder="Role"
+                                                                                    value={role}
+                                                                                    name="role"
+                                                                                    id="role"
+                                                                                    onChange={(e) => setRole(e.target.value)}
+                                                                                />
+                                                                            </InputGroup>
+                                                                        </Td>
+                                                                        <Td textAlign="center">
+                                                                            {
+                                                                                processing ?
+                                                                                    <>
+                                                                                        <Button blur colorScheme='teal' size='sm' isLoading loadingText='Updating' />
+                                                                                    </>
+                                                                                :
+                                                                                    <>
+                                                                                        <Button colorScheme='teal' size='sm' onClick={updateRecord}>Update</Button>
+                                                                                    </>
+                                                                            }
+                                                                        </Td> 
+                                                                        <Td textAlign="center">
+                                                                            <Button colorScheme='teal' size='sm' onClick={CancelUpdate}>Cancel</Button>
+                                                                        </Td>
+                                                                    </>
+                                                                :
+                                                                    <>
+                                                                        <Td textAlign="center">{customer.name}</Td>
+                                                                        <Td textAlign="center">{customer.email}</Td>
+                                                                        <Td textAlign="center">{customer.role}</Td>
+                                                                        {
+                                                                            updateStatus ?
+                                                                                <>
+                                                                                    <Td textAlign="center">
+                                                                                        <Button disabled colorScheme='teal' size='sm'>Edit</Button>
+                                                                                    </Td>
+                                                                                    <Td textAlign="center">
+                                                                                        <Button disabled colorScheme='teal' size='sm'>Delete</Button>
+                                                                                    </Td>
+                                                                                </>
+                                                                            :
+                                                                                <>
+                                                                                    <Td textAlign="center">
+                                                                                        <Button colorScheme='teal' size='sm' onClick={() => handleEditOpen(customer, index)}>Edit</Button>
+                                                                                    </Td>
+                                                                                    <Td textAlign="center">
+                                                                                        <Button colorScheme='teal' size='sm' onClick={() => handleDelOpen(customer)}>Delete</Button>
+                                                                                    </Td>
+                                                                                </>
+                                                                        }
+                                                                    </>
+                                                            }
                                                         </Tr>
                                                     )
                                                 })
@@ -204,9 +331,10 @@ const TableComponent = () => {
                             </>
                     }
 
-                    <AddRecord Open={isOpen} Close={handleClose} submitFunction={SubmitRecord} />
-                    <DeleteRecords Open={isDelOpen} Close={handleClose} record={deleteRecord} delFunction={deleteFunction} />
-                    <EditRecords Open={isEditOpen} Close={handleClose} record={updateData} updateFunction={updateRecord} />
+                    <AddRecord Open={isOpen} Close={handleClose} submitFunction={SubmitRecord} processingStatus={addProcessing} />
+                    <DeleteRecords Open={isDelOpen} Close={handleClose} record={deleteRecord} delFunction={deleteFunction} processingStatus={delProcessing} />
+                    
+                    <ToastContainer />
                 </>
         }
         

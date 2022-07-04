@@ -14,7 +14,7 @@ import {
 
 const DeleteRecords = (props) => {
 
-  const deleteFunction = () => {
+  const deleteFunction = (event) => {
         const id = props.record.id;
         props.delFunction({id})
     }
@@ -38,7 +38,16 @@ const DeleteRecords = (props) => {
                     <Button colorScheme='teal' mr={3} onClick={() => props.Close()}>
                         Cancel
                     </Button>
-                    <Button colorScheme='teal' onClick={deleteFunction}>Delete</Button>
+                    {
+                      props.processingStatus ?
+                        <>
+                          <Button colorScheme='teal' isLoading loadingText='Deleting' />
+                        </>
+                      :
+                        <>
+                          <Button colorScheme='teal' onClick={deleteFunction}>Delete</Button>
+                        </>
+                    }
                 </ModalFooter>
             </ModalContent>
         </Modal>
